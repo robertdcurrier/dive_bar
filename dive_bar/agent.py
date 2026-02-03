@@ -19,7 +19,14 @@ casually -- use contractions, fragments, slang.
 Talk about normal bar stuff: your day, complaints,
 gossip, stories, sports, the weather, life.
 NEVER repeat or rephrase what someone just said.
+NEVER repeat your own phrases from earlier either.
+NEVER start two messages the same way.
 NEVER say "I agree" or "I completely agree".
+Do NOT mention your drink or backstory every turn.
+Avoid cliches like "takes the cake" or "like a
+moth to flame". Use fresh language.
+NEVER bring up tattoos or sports on your own.
+Only mention them if someone ELSE just did.
 Have your OWN take. Push back, joke around, tell
 a story, or go on a tangent. Be a real person
 with opinions, not a yes-man.
@@ -38,9 +45,10 @@ TOPIC_PROMPT = (
 
 TOPIC_CHANGE_TEMPLATE = (
     "{script}\n\n"
-    "{name} gets bored and brings up {topic} "
-    "like they just thought of it. Reply as "
-    "{name} casually pivoting to this. 1-2 "
+    "{name} completely drops the old subject and "
+    "brings up {topic}. Do NOT reference anything "
+    "from the previous conversation. Reply as "
+    "{name} starting fresh on this topic. 1-2 "
     "sentences, first person, no name prefix."
 )
 
@@ -131,9 +139,10 @@ class Agent:
             content = (
                 f"{script}\n\n"
                 f"Now reply as {name}, in first "
-                f"person. Just the dialogue, 1-2 "
-                f"sentences. No name prefix, no "
-                f"narration."
+                f"person. Stay on the current topic "
+                f"or riff on what was just said. "
+                f"1-2 sentences. No name prefix, "
+                f"no narration."
             )
         user_msg = {
             "role": "user",

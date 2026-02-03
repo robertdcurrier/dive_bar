@@ -19,6 +19,10 @@ W_RAND = 0.10
 # Max seconds before time_factor saturates at 1.0
 TIME_CAP = 60.0
 
+# Turns of silence before an agent gets a boost
+SILENCE_THRESHOLD = 8
+SILENCE_BOOST = 0.25
+
 # Cooldown multiplier (tick_interval * this)
 COOLDOWN_MULT = 1.5
 
@@ -37,6 +41,7 @@ class Bartender:
         self.tick_interval = tick_interval
         self.cooldown = tick_interval * COOLDOWN_MULT
         self.last_spoke: dict[str, float] = {}
+        self.last_spoke_turn: dict[str, int] = {}
         self.turn_number = 0
         self.paused = False
 
@@ -62,6 +67,9 @@ class Bartender:
     def record_spoke(self, agent_name: str):
         """Record that an agent just spoke."""
         self.last_spoke[agent_name] = time.time()
+        self.last_spoke_turn[agent_name] = (
+            self.turn_number
+        )
         self.turn_number += 1
 
     def get_score(
@@ -95,11 +103,13 @@ class Bartender:
         a_factor = self._addressed_factor(
             name, agent, last_message
         )
+        s_boost = self._silence_boost(name)
         return (
             W_TIME * t_factor
             + W_CHAT * agent.chattiness
             + W_ADDR * a_factor
             + W_RAND * random.random()
+            + s_boost
         )
 
     def _time_factor(self, name: str) -> float:
@@ -109,6 +119,14 @@ class Bartender:
             return 1.0
         elapsed = time.time() - last
         return min(elapsed / TIME_CAP, 1.0)
+
+    def _silence_boost(self, name: str) -> float:
+        """Boost agents who haven't spoken in a while."""
+        last_turn = self.last_spoke_turn.get(name, 0)
+        gap = self.turn_number - last_turn
+        if gap >= SILENCE_THRESHOLD:
+            return SILENCE_BOOST
+        return 0.0
 
     def _addressed_factor(
         self,
