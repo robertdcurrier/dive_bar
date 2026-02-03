@@ -195,5 +195,4 @@ dive-bar/
 
 ## License
 
-MIT
-# dive_bar
+MIT License. See [LICENSE](LICENSE) for details.
