@@ -1,0 +1,1 @@
+"""Dive Bar TUI widgets."""

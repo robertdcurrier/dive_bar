@@ -1,0 +1,30 @@
+[bar]
+name = "The Rusty Nail"
+max_agents = 5
+tick_interval = 2.0
+max_subject_chat = 3
+
+[llm]
+model_path = "models/Meta-Llama-3-70B-Instruct-Q4_K_M.gguf"
+n_ctx = 4096
+n_gpu_layers = -1
+chat_format = "llama-3"
+seed = 42
+
+[llm.generation]
+temperature = 0.95
+top_p = 0.9
+top_k = 50
+min_p = 0.05
+max_tokens = 80
+repeat_penalty = 1.2
+frequency_penalty = 0.0
+presence_penalty = 0.0
+
+[display]
+response_speed = 30
+show_timestamps = true
+color_scheme = "default"
+
+[database]
+path = "data/dive_bar.duckdb"
