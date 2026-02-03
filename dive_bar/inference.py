@@ -9,6 +9,14 @@ from llama_cpp import Llama
 from dive_bar.models import GenerationResult, LLMConfig
 
 
+SUPPRESSED_WORDS = [
+    "tattoo", "tattoos", "tattooed",
+    "tattooing", "ink", "inked",
+    "inking", "tatt", "tatted",
+]
+SUPPRESS_BIAS = -100.0
+
+
 class InferenceEngine:
     """Thread-safe wrapper around llama-cpp-python."""
 
@@ -17,6 +25,7 @@ class InferenceEngine:
         self.gen_params = config.generation
         self._lock = threading.Lock()
         self.llm = None
+        self._logit_bias: dict[int, float] = {}
 
     def load_model(self):
         """Load the model into memory."""
@@ -28,6 +37,19 @@ class InferenceEngine:
             seed=self.config.seed,
             verbose=False,
         )
+        self._build_logit_bias()
+
+    def _build_logit_bias(self):
+        """Tokenize suppressed words into logit bias."""
+        bias: dict[int, float] = {}
+        for word in SUPPRESSED_WORDS:
+            tokens = self.llm.tokenize(
+                word.encode("utf-8"),
+                add_bos=False,
+            )
+            for tid in tokens:
+                bias[tid] = SUPPRESS_BIAS
+        self._logit_bias = bias
 
     def generate(
         self,
@@ -97,6 +119,8 @@ class InferenceEngine:
         }
         if stop:
             kwargs["stop"] = stop
+        if self._logit_bias:
+            kwargs["logit_bias"] = self._logit_bias
         result = self.llm.create_chat_completion(
             **kwargs
         )
