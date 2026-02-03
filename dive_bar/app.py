@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Main Textual application for Dive Bar."""
 
+import random
 import re
 import time
 from pathlib import Path
@@ -164,53 +165,53 @@ class DiveBarApp(App):
         interval = self.config.bar.tick_interval
         self.set_timer(interval, self._tick)
 
-    OPENER_CATEGORIES = (
-        "sex, politics, sports, marriage, kids, "
-        "pets, girlfriends/boyfriends, work "
-        "complaints, crazy news stories, "
-        "neighborhood gossip, money problems, "
-        "bad dates, family drama"
-    )
-
-    OPENER_PROMPT = [
-        {
-            "role": "system",
-            "content": (
-                "You are a bartender at a dive bar. "
-                "Write one casual sentence to kick "
-                "off tonight's conversation. Pick "
-                "ONE random category from this list "
-                "and talk about ONLY that: "
-                "{categories}. "
-                "Do NOT pick sports or tattoos. "
-                "Sound natural, gruff, opinionated. "
-                "No quotes, no narration, just the "
-                "line. Keep it under 15 words."
-            ),
-        },
-        {
-            "role": "user",
-            "content": "Say something to get the "
-            "regulars talking.",
-        },
+    OPENER_CATEGORIES = [
+        "sex and hookups",
+        "politics",
+        "marriage",
+        "kids and parenting",
+        "pets",
+        "girlfriends and boyfriends",
+        "work complaints",
+        "crazy news stories",
+        "neighborhood gossip",
+        "money problems",
+        "bad dates",
+        "family drama",
+        "landlord horror stories",
+        "worst coworkers",
+        "celebrity gossip",
+        "gas prices and inflation",
     ]
 
     def _generate_opener(self) -> str:
         """Ask the LLM for a bartender opener."""
+        topic = random.choice(self.OPENER_CATEGORIES)
         prompt = [
             {
-                "role": msg["role"],
-                "content": msg["content"].format(
-                    categories=self.OPENER_CATEGORIES,
-                ),
-            }
-            for msg in self.OPENER_PROMPT
+                "role": "system",
+                "content": (
+                    "You are a bartender at a dive "
+                    "bar. Write one casual sentence "
+                    "about {topic} to kick off "
+                    "tonight's conversation. Sound "
+                    "natural and gruff. No quotes, "
+                    "no narration. Under 15 words."
+                ).format(topic=topic),
+            },
+            {
+                "role": "user",
+                "content": (
+                    "Say something about {topic} "
+                    "to get the regulars talking."
+                ).format(topic=topic),
+            },
         ]
         result = self.engine.generate(
             prompt, stop=["\n"], max_tokens=30,
         )
         text = result.content.strip().strip("'\"")
-        return text or "Slow night. Somebody "  \
+        return text or "Slow night. Somebody " \
             "say something interesting."
 
     def _seed_conversation(self):

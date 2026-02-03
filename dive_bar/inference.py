@@ -61,6 +61,12 @@ class InferenceEngine:
             "repeat_penalty": (
                 self.gen_params.repeat_penalty
             ),
+            "frequency_penalty": (
+                self.gen_params.frequency_penalty
+            ),
+            "presence_penalty": (
+                self.gen_params.presence_penalty
+            ),
             **overrides,
         }
 
@@ -81,6 +87,12 @@ class InferenceEngine:
             "max_tokens": params["max_tokens"],
             "repeat_penalty": (
                 params["repeat_penalty"]
+            ),
+            "frequency_penalty": (
+                params["frequency_penalty"]
+            ),
+            "presence_penalty": (
+                params["presence_penalty"]
             ),
         }
         if stop:
