@@ -9,10 +9,10 @@ from llama_cpp import Llama
 from dive_bar.models import GenerationResult, LLMConfig
 
 
-SUPPRESSED_WORDS = [
-    "tattoo", "tattoos", "tattooed",
-    "tattooing", "ink", "inked",
-    "inking", "tatt", "tatted",
+_SUPPRESSED_VARIANTS = [
+    " tattoo", " tattoos", " tattooed",
+    " tattooing", " Tattoo", " Tattoos",
+    " TATTOO",
 ]
 SUPPRESS_BIAS = -100.0
 
@@ -40,16 +40,41 @@ class InferenceEngine:
         self._build_logit_bias()
 
     def _build_logit_bias(self):
-        """Tokenize suppressed words into logit bias."""
+        """Build logit bias from suppressed words.
+
+        Only suppresses single-token forms and unique
+        subword tokens. Skips common subtokens like
+        't', 'o', 'ed' that would break generation.
+        """
         bias: dict[int, float] = {}
-        for word in SUPPRESSED_WORDS:
+        common = self._find_common_tokens()
+        for word in _SUPPRESSED_VARIANTS:
             tokens = self.llm.tokenize(
                 word.encode("utf-8"),
                 add_bos=False,
             )
-            for tid in tokens:
-                bias[tid] = SUPPRESS_BIAS
+            if len(tokens) == 1:
+                bias[tokens[0]] = SUPPRESS_BIAS
+            else:
+                for tid in tokens:
+                    if tid not in common:
+                        bias[tid] = SUPPRESS_BIAS
         self._logit_bias = bias
+
+    def _find_common_tokens(self) -> set[int]:
+        """Find tokens too common to suppress."""
+        probe = [
+            " the", " and", " to", " of",
+            " it", " that", " ed", " ing",
+        ]
+        common: set[int] = set()
+        for word in probe:
+            tokens = self.llm.tokenize(
+                word.encode("utf-8"),
+                add_bos=False,
+            )
+            common.update(tokens)
+        return common
 
     def generate(
         self,
