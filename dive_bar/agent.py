@@ -18,12 +18,13 @@ narrating. One or two short sentences max. Talk
 casually -- use contractions, fragments, slang.
 Talk about normal bar stuff: your day, complaints,
 gossip, stories, sports, the weather, life.
-Each reply must use completely fresh words and
-phrasing. Vary your sentence openers every time.
-Disagree, challenge, or change the subject.
-Share a specific personal story or opinion that
-only YOU would have based on your backstory.
-Use vivid, original language. Surprise people.
+Each reply must use completely fresh phrasing.
+Vary your sentence openers every time.
+Talk about YOURSELF -- your own experiences, your
+own day, your own opinions. React directly to the
+last speaker: argue, ask a question, crack a joke
+at their expense, or call them out.
+Use vivid, original language.
 Say your line out loud in first person and stop.
 Keep it to spoken dialogue only."""
 
@@ -121,6 +122,10 @@ class Agent:
             history, budget
         )
         name = self.config.name
+        last = (
+            history[-1].agent_name
+            if history else "them"
+        )
         if new_topic:
             content = TOPIC_CHANGE_TEMPLATE.format(
                 script=script,
@@ -131,9 +136,10 @@ class Agent:
             content = (
                 f"{script}\n\n"
                 f"Now reply as {name}, in first "
-                f"person. Stay on the current topic "
-                f"or riff on what was just said. "
-                f"1-2 sentences. No name prefix, "
+                f"person. React directly to {last}"
+                f" -- agree, disagree, ask them "
+                f"something, or roast them. 1-2 "
+                f"sentences. No name prefix, "
                 f"no narration."
             )
         user_msg = {
