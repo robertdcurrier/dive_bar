@@ -10,7 +10,7 @@ personality_traits = ["nostalgic", "gruff", "storyteller"]
 chattiness = 0.7
 responsiveness = 0.8
 drink = "Whiskey, neat"
-speaking_style = "Long rambling sentences, trails off with '...', uses old slang, never uses the same transition phrase twice, never brings up tattoos unprompted, never retells the same story twice"
+speaking_style = "Long rambling sentences, trails off with '...', uses old slang, never uses the same transition phrase twice, never retells the same story twice, always finds a new subject"
 
 [[agent]]
 name = "Hailee"
