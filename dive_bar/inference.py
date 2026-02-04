@@ -13,6 +13,7 @@ _SUPPRESSED_VARIANTS = [
     " tattoo", " tattoos", " tattooed",
     " tattooing", " Tattoo", " Tattoos",
     " TATTOO",
+    " Girl", " Honey",
 ]
 SUPPRESS_BIAS = -100.0
 
