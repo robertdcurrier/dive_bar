@@ -46,6 +46,7 @@ TOPIC_CHANGE_TEMPLATE = (
 )
 
 CHARS_PER_TOKEN = 4
+MAX_SCRIPT_LINES = 10
 
 
 class Agent:
@@ -153,10 +154,15 @@ class Agent:
         history: list[Message],
         budget: int,
     ) -> str:
-        """Build a script of recent conversation."""
+        """Build a script of recent conversation.
+
+        Caps at MAX_SCRIPT_LINES to prevent echo
+        templates from accumulating in the context.
+        """
+        recent = history[-MAX_SCRIPT_LINES:]
         lines = []
         used = 0
-        for msg in reversed(history):
+        for msg in reversed(recent):
             line = f"{msg.agent_name}: {msg.content}"
             tokens = self._estimate_tokens(line)
             if used + tokens > budget:
