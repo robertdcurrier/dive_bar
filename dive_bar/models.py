@@ -63,16 +63,30 @@ class LLMGeneration:
 
 
 @dataclass
+class APIConfig:
+    """API provider configuration."""
+
+    provider: str = "anthropic"
+    api_key: str = ""
+    model: str = "claude-opus-4-6"
+    base_url: str = ""
+
+
+@dataclass
 class LLMConfig:
     """LLM configuration."""
 
-    model_path: str
+    mode: str = "local"
+    model_path: str = ""
     n_ctx: int = 4096
     n_gpu_layers: int = -1
     chat_format: str = "mistral-instruct"
     seed: int = 42
     generation: LLMGeneration = field(
         default_factory=LLMGeneration
+    )
+    api: APIConfig = field(
+        default_factory=APIConfig
     )
 
 

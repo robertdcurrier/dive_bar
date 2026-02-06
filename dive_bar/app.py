@@ -77,9 +77,7 @@ class DiveBarApp(App):
 
     def _setup_components(self):
         """Initialize core components."""
-        self.engine = InferenceEngine(
-            self.config.llm
-        )
+        self.engine = self._create_engine()
         root = Path(__file__).resolve().parent.parent
         db_path = root / self.config.database.path
         self.db = Database(str(db_path))
@@ -88,6 +86,13 @@ class DiveBarApp(App):
             [a.config for a in self.agents.values()],
             self.config.bar.tick_interval,
         )
+
+    def _create_engine(self):
+        """Pick inference engine based on config mode."""
+        if self.config.llm.mode == "api":
+            from dive_bar.api_engine import APIEngine
+            return APIEngine(self.config.llm)
+        return InferenceEngine(self.config.llm)
 
     def _create_agents(self) -> dict[str, Agent]:
         """Create Agent instances from config."""
@@ -132,14 +137,17 @@ class DiveBarApp(App):
 
     def _startup(self) -> str:
         """Load model in background thread."""
-        root = Path(__file__).resolve().parent.parent
-        model_path = (
-            root / self.config.llm.model_path
-        )
-        self.config.llm.model_path = str(model_path)
-        self.engine.config.model_path = str(
-            model_path
-        )
+        if self.config.llm.mode == "local":
+            root = Path(__file__).resolve().parent.parent
+            model_path = (
+                root / self.config.llm.model_path
+            )
+            self.config.llm.model_path = str(
+                model_path
+            )
+            self.engine.config.model_path = str(
+                model_path
+            )
         self.engine.load_model()
         self._opener = self._generate_opener()
         return "ready"
@@ -455,9 +463,12 @@ class DiveBarApp(App):
         """Log message to DuckDB."""
         gen = self.config.llm.generation
         agent_cfg = self.agents[name].config
-        model_name = Path(
-            self.config.llm.model_path
-        ).stem
+        if self.config.llm.mode == "api":
+            model_name = self.config.llm.api.model
+        else:
+            model_name = Path(
+                self.config.llm.model_path
+            ).stem
         self.db.log_message(
             session_id=self._session_id,
             turn_number=turn,

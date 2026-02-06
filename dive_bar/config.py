@@ -8,6 +8,7 @@ import tomllib
 
 from dive_bar.models import (
     AgentConfig,
+    APIConfig,
     AppConfig,
     BarConfig,
     DatabaseConfig,
@@ -42,6 +43,17 @@ def _load_bar_config(data: dict) -> BarConfig:
     )
 
 
+def _load_api_config(data: dict) -> APIConfig:
+    """Parse [llm.api] section from config."""
+    api = data.get("llm", {}).get("api", {})
+    return APIConfig(
+        provider=api.get("provider", "anthropic"),
+        api_key=api.get("api_key", ""),
+        model=api.get("model", "claude-opus-4-6"),
+        base_url=api.get("base_url", ""),
+    )
+
+
 def _load_llm_config(data: dict) -> LLMConfig:
     """Parse [llm] section from config."""
     llm = data.get("llm", {})
@@ -63,6 +75,7 @@ def _load_llm_config(data: dict) -> LLMConfig:
         ),
     )
     return LLMConfig(
+        mode=llm.get("mode", "local"),
         model_path=llm.get("model_path", ""),
         n_ctx=llm.get("n_ctx", 4096),
         n_gpu_layers=llm.get("n_gpu_layers", -1),
@@ -71,6 +84,7 @@ def _load_llm_config(data: dict) -> LLMConfig:
         ),
         seed=llm.get("seed", 42),
         generation=generation,
+        api=_load_api_config(data),
     )
 
 
