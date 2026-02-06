@@ -32,12 +32,20 @@ Nobody has any. It is not a concept anyone knows.
 Address people by their actual name, never pet
 names like "honey", "girl", "sweetie", "sugar"."""
 
-TOPIC_PROMPT = (
-    "Name a random dive bar conversation topic "
-    "in 2-5 words. Just the topic, nothing else."
-    " Be specific and gritty. Examples: 'worst "
-    "landlord stories', 'dumbest bar fights', "
-    "'jobs that broke you', 'creepy regulars'."
+TOPIC_SYSTEM = (
+    "You pick conversation topics that people "
+    "talk about at a dive bar. 2-5 words. Just "
+    "the topic, nothing else."
+)
+
+TOPIC_USER = (
+    "Pick a new subject you'd overhear at a "
+    "dive bar. Something different from: {avoid}"
+)
+
+TOPIC_USER_FRESH = (
+    "Pick a subject you'd overhear at a "
+    "dive bar."
 )
 
 TOPIC_CHANGE_TEMPLATE = (
@@ -85,16 +93,30 @@ class Agent:
             drink=self.config.drink,
         )
 
-    def build_topic_prompt(self) -> list[dict]:
-        """Build messages to generate a random topic."""
+    def build_topic_prompt(
+        self,
+        recent_topics: list[str] | None = None,
+    ) -> list[dict]:
+        """Build messages to generate a random topic.
+
+        If recent_topics is provided, asks the LLM
+        to avoid those subjects.
+        """
+        if recent_topics:
+            avoid = ", ".join(recent_topics)
+            user_content = TOPIC_USER.format(
+                avoid=avoid
+            )
+        else:
+            user_content = TOPIC_USER_FRESH
         return [
             {
                 "role": "system",
-                "content": TOPIC_PROMPT,
+                "content": TOPIC_SYSTEM,
             },
             {
                 "role": "user",
-                "content": "Give me a topic.",
+                "content": user_content,
             },
         ]
 

@@ -72,6 +72,7 @@ class DiveBarApp(App):
         self.speed_mult = 1.0
         self._session_id = ""
         self._subject_count = 0
+        self._recent_topics: list[str] = []
         self._opener = ""
         self._setup_components()
 
@@ -393,13 +394,20 @@ class DiveBarApp(App):
         self, agent, name: str | None = None
     ) -> str:
         """Ask the LLM for a random bar topic."""
-        prompt = agent.build_topic_prompt()
+        prompt = agent.build_topic_prompt(
+            self._recent_topics or None
+        )
         result = self._get_engine(name).generate(
             prompt,
             stop=["\n"],
             max_tokens=20,
         )
-        return result.content.strip().strip("'\"")
+        topic = result.content.strip().strip("'\"")
+        if topic:
+            self._recent_topics.append(topic)
+            if len(self._recent_topics) > 5:
+                self._recent_topics.pop(0)
+        return topic
 
     def _diversity_loop(
         self,
