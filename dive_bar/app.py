@@ -78,6 +78,10 @@ class DiveBarApp(App):
     def _setup_components(self):
         """Initialize core components."""
         self.engine = self._create_engine()
+        self.engines: dict = {}
+        self.house_engine = None
+        if self.config.llm.mode == "api":
+            self._create_api_engines()
         root = Path(__file__).resolve().parent.parent
         db_path = root / self.config.database.path
         self.db = Database(str(db_path))
@@ -93,6 +97,29 @@ class DiveBarApp(App):
             from dive_bar.api_engine import APIEngine
             return APIEngine(self.config.llm)
         return InferenceEngine(self.config.llm)
+
+    def _create_api_engines(self):
+        """Create per-agent API engines + house engine."""
+        from dive_bar.api_engine import APIEngine
+        for ac in self.config.agents:
+            self.engines[ac.name] = APIEngine(
+                self.config.llm
+            )
+        self.house_engine = APIEngine(
+            self.config.llm
+        )
+
+    def _get_engine(self, name: str | None = None):
+        """Route to the correct engine by agent name.
+
+        Per-agent engine if available, else house
+        engine, else single local engine.
+        """
+        if name and name in self.engines:
+            return self.engines[name]
+        if self.house_engine:
+            return self.house_engine
+        return self.engine
 
     def _create_agents(self) -> dict[str, Agent]:
         """Create Agent instances from config."""
@@ -138,7 +165,9 @@ class DiveBarApp(App):
     def _startup(self) -> str:
         """Load model in background thread."""
         if self.config.llm.mode == "local":
-            root = Path(__file__).resolve().parent.parent
+            root = (
+                Path(__file__).resolve().parent.parent
+            )
             model_path = (
                 root / self.config.llm.model_path
             )
@@ -148,9 +177,18 @@ class DiveBarApp(App):
             self.engine.config.model_path = str(
                 model_path
             )
-        self.engine.load_model()
+            self.engine.load_model()
+        else:
+            self._load_api_engines()
         self._opener = self._generate_opener()
         return "ready"
+
+    def _load_api_engines(self):
+        """Load all per-agent + house API engines."""
+        for eng in self.engines.values():
+            eng.load_model()
+        if self.house_engine:
+            self.house_engine.load_model()
 
     def on_worker_state_changed(
         self, event: Worker.StateChanged
@@ -219,7 +257,7 @@ class DiveBarApp(App):
                 ).format(topic=topic),
             },
         ]
-        result = self.engine.generate(
+        result = self._get_engine().generate(
             prompt, stop=["\n"], max_tokens=30,
         )
         text = result.content.strip().strip("'\"")
@@ -278,7 +316,8 @@ class DiveBarApp(App):
             f"{n}:" for n in self.agents
             if n != name
         ] + ["Bartender:", "A stranger:", "\n\n"]
-        result = self.engine.generate(
+        engine = self._get_engine(name)
+        result = engine.generate(
             messages, stop=stop
         )
         content = self._clean_response(
@@ -301,7 +340,13 @@ class DiveBarApp(App):
             else None,
         )
         # Always record spoke to prevent loops
-        self.bartender.record_spoke(name)
+        last_speaker = (
+            self.history[-1].agent_name
+            if self.history else None
+        )
+        self.bartender.record_spoke(
+            name, last_speaker
+        )
         if not content:
             self.call_from_thread(
                 self._on_empty_response, name
@@ -334,7 +379,9 @@ class DiveBarApp(App):
         and tells the agent to change the subject.
         """
         if self._subject_count >= max_subj:
-            topic = self._generate_topic(agent)
+            topic = self._generate_topic(
+                agent, agent.config.name
+            )
             self._subject_count = 0
             return agent.build_messages(
                 self.history, new_topic=topic
@@ -342,10 +389,12 @@ class DiveBarApp(App):
         self._subject_count += 1
         return agent.build_messages(self.history)
 
-    def _generate_topic(self, agent) -> str:
+    def _generate_topic(
+        self, agent, name: str | None = None
+    ) -> str:
         """Ask the LLM for a random bar topic."""
         prompt = agent.build_topic_prompt()
-        result = self.engine.generate(
+        result = self._get_engine(name).generate(
             prompt,
             stop=["\n"],
             max_tokens=20,
@@ -380,7 +429,7 @@ class DiveBarApp(App):
             feedback = self._build_rephrase_prompt(
                 agent, content, diversity
             )
-            result = self.engine.generate(
+            result = self._get_engine(name).generate(
                 feedback, stop=stop
             )
             content = self._clean_response(
@@ -600,5 +649,11 @@ class DiveBarApp(App):
         if self._session_id:
             self.db.end_session(self._session_id)
         self.db.close()
-        self.engine.unload()
+        if self.engines:
+            for eng in self.engines.values():
+                eng.unload()
+            if self.house_engine:
+                self.house_engine.unload()
+        else:
+            self.engine.unload()
         self.exit()

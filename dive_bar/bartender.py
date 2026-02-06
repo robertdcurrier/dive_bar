@@ -26,6 +26,10 @@ SILENCE_BOOST = 0.25
 # Cooldown multiplier (tick_interval * this)
 COOLDOWN_MULT = 1.5
 
+# Max consecutive turns for the same A->B pair
+# before deterministic addressing is suppressed
+MAX_PAIR_STREAK = 2
+
 
 class Bartender:
     """Orchestrator that selects the next speaker."""
@@ -44,14 +48,27 @@ class Bartender:
         self.last_spoke_turn: dict[str, int] = {}
         self.turn_number = 0
         self.paused = False
+        self._pair_history: list[tuple[str, str]] = []
 
     def select_next(
         self,
         last_message: Message | None,
     ) -> str | None:
-        """Pick the next agent to speak."""
+        """Pick the next agent to speak.
+
+        If the last message addresses an agent by name,
+        that agent speaks next (deterministic). Otherwise
+        falls back to weighted scoring.
+        """
         if self.paused:
             return None
+        addressed = self._find_addressed(
+            last_message
+        )
+        if addressed and not self._pair_locked(
+            last_message.agent_name, addressed
+        ):
+            return addressed
         eligible = self._get_eligible()
         if not eligible:
             return None
@@ -64,13 +81,66 @@ class Bartender:
         winner = max(scores, key=scores.get)
         return winner
 
-    def record_spoke(self, agent_name: str):
+    def _find_addressed(
+        self,
+        last_message: Message | None,
+    ) -> str | None:
+        """Check if last message names an agent.
+
+        Returns the addressed agent's name if found
+        and eligible, else None. Skips the speaker.
+        """
+        if last_message is None:
+            return None
+        content = last_message.content.lower()
+        speaker = last_message.agent_name
+        now = time.time()
+        for name in self.agents:
+            if name == speaker:
+                continue
+            last = self.last_spoke.get(name, 0.0)
+            if now - last < self.cooldown:
+                continue
+            if name.lower() in content:
+                return name
+        return None
+
+    def _pair_locked(
+        self, speaker: str, responder: str
+    ) -> bool:
+        """True if this pair has been ping-ponging.
+
+        Checks if the last MAX_PAIR_STREAK pairs all
+        involve the same two agents in either direction
+        (A->B or B->A both count).
+        """
+        dyad = frozenset((speaker, responder))
+        tail = self._pair_history[-MAX_PAIR_STREAK:]
+        if len(tail) < MAX_PAIR_STREAK:
+            return False
+        return all(
+            frozenset(p) == dyad for p in tail
+        )
+
+    def record_spoke(
+        self, agent_name: str,
+        last_speaker: str | None = None,
+    ):
         """Record that an agent just spoke."""
         self.last_spoke[agent_name] = time.time()
         self.last_spoke_turn[agent_name] = (
             self.turn_number
         )
         self.turn_number += 1
+        if last_speaker:
+            self._pair_history.append(
+                (last_speaker, agent_name)
+            )
+            # Keep bounded
+            if len(self._pair_history) > 20:
+                self._pair_history = (
+                    self._pair_history[-10:]
+                )
 
     def get_score(
         self,
