@@ -5,7 +5,7 @@ tick_interval = 2.0
 max_subject_chat = 2
 
 [llm]
-mode = "local"  # "local" or "api"
+mode = "api"  # "local" or "api"
 model_path = "models/Meta-Llama-3-70B-Instruct-Q4_K_M.gguf"
 n_ctx = 4096
 n_gpu_layers = -1
@@ -14,7 +14,7 @@ seed = -1
 
 [llm.api]
 provider = "anthropic"
-api_key = ""  # or set ANTHROPIC_API_KEY env var
+# Set ANTHROPIC_API_KEY env var instead
 model = "claude-opus-4-6"
 
 [llm.generation]

@@ -26,7 +26,11 @@ last speaker: argue, ask a question, crack a joke
 at their expense, or call them out.
 Use vivid, original language.
 Say your line out loud in first person and stop.
-Keep it to spoken dialogue only."""
+Keep it to spoken dialogue only.
+Body art and ink DO NOT EXIST in this world.
+Nobody has any. It is not a concept anyone knows.
+Address people by their actual name, never pet
+names like "honey", "girl", "sweetie", "sugar"."""
 
 TOPIC_PROMPT = (
     "Name a random dive bar conversation topic "

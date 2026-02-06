@@ -80,14 +80,18 @@ class APIEngine:
             "model": self.config.api.model,
             "max_tokens": params["max_tokens"],
             "temperature": params["temperature"],
-            "top_p": params["top_p"],
             "top_k": params["top_k"],
             "messages": chat_msgs,
         }
         if system_text:
             kwargs["system"] = system_text
         if stop:
-            kwargs["stop_sequences"] = stop
+            # Anthropic rejects whitespace-only stops
+            cleaned = [
+                s for s in stop if s.strip()
+            ]
+            if cleaned:
+                kwargs["stop_sequences"] = cleaned
         return kwargs
 
     def _do_generate(
