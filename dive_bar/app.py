@@ -15,6 +15,10 @@ from textual.worker import Worker, WorkerState
 from dive_bar.agent import Agent
 from dive_bar.bartender import Bartender
 from dive_bar.db import Database
+from dive_bar.diversity import (
+    DiversityResult,
+    compute_diversity_score,
+)
 from dive_bar.inference import InferenceEngine
 from dive_bar.models import AppConfig, Message
 from dive_bar.widgets.agent_sidebar import (
@@ -269,14 +273,24 @@ class DiveBarApp(App):
         result = self.engine.generate(
             messages, stop=stop
         )
+        content = self._clean_response(
+            name, result.content
+        )
+        # Diversity check and regeneration loop
+        div_cfg = self.config.diversity
+        if div_cfg.enabled and content:
+            content, regen_count = self._diversity_loop(
+                name, agent, content, stop, div_cfg
+            )
+            if regen_count > 0:
+                self._log_regeneration(
+                    name, regen_count
+                )
         score = self.bartender.get_score(
             name,
             self.history[-1]
             if self.history
             else None,
-        )
-        content = self._clean_response(
-            name, result.content
         )
         # Always record spoke to prevent loops
         self.bartender.record_spoke(name)
@@ -329,6 +343,83 @@ class DiveBarApp(App):
             max_tokens=20,
         )
         return result.content.strip().strip("'\"")
+
+    def _diversity_loop(
+        self,
+        name: str,
+        agent: Agent,
+        content: str,
+        stop: list[str],
+        div_cfg,
+    ) -> tuple[str, int]:
+        """Check diversity and regenerate if needed.
+
+        Returns (final_content, regen_count).
+        """
+        attempt = 0
+        while attempt < div_cfg.max_retries:
+            diversity = compute_diversity_score(
+                content,
+                self.history,
+                name,
+                window=div_cfg.window_size,
+                threshold=div_cfg.threshold,
+                ngram_min=div_cfg.ngram_min,
+                ngram_max=div_cfg.ngram_max,
+            )
+            if diversity.passed:
+                break
+            feedback = self._build_rephrase_prompt(
+                agent, content, diversity
+            )
+            result = self.engine.generate(
+                feedback, stop=stop
+            )
+            content = self._clean_response(
+                name, result.content
+            )
+            attempt += 1
+            if not content:
+                break
+        return content, attempt
+
+    def _build_rephrase_prompt(
+        self,
+        agent: Agent,
+        original: str,
+        diversity: DiversityResult,
+    ) -> list[dict]:
+        """Build prompt asking LLM to rephrase."""
+        problems = "\n".join(
+            f"- {p}" for p in diversity.problems[:3]
+        )
+        return [
+            {
+                "role": "system",
+                "content": agent.system_prompt,
+            },
+            {
+                "role": "user",
+                "content": (
+                    f"You just said: \"{original}\"\n\n"
+                    f"Problems:\n{problems}\n\n"
+                    f"Say the same thing completely "
+                    f"differently. Fresh phrasing. "
+                    f"1-2 sentences."
+                ),
+            },
+        ]
+
+    def _log_regeneration(
+        self, name: str, attempts: int
+    ) -> None:
+        """Log regeneration event to database."""
+        self.db.log_regeneration(
+            session_id=self._session_id,
+            turn_number=self.bartender.turn_number,
+            agent_name=name,
+            attempt_count=attempts,
+        )
 
     def _on_empty_response(self, name: str):
         """Handle empty generation -- just move on."""

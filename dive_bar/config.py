@@ -12,6 +12,7 @@ from dive_bar.models import (
     BarConfig,
     DatabaseConfig,
     DisplayConfig,
+    DiversityConfig,
     LLMConfig,
     LLMGeneration,
 )
@@ -95,6 +96,20 @@ def _load_database_config(data: dict) -> DatabaseConfig:
     )
 
 
+def _load_diversity_config(data: dict) -> DiversityConfig:
+    """Parse [diversity] section from config."""
+    div = data.get("diversity", {})
+    return DiversityConfig(
+        enabled=div.get("enabled", True),
+        threshold=div.get("threshold", 0.6),
+        max_retries=div.get("max_retries", 3),
+        window_size=div.get("window_size", 10),
+        ngram_min=div.get("ngram_min", 3),
+        ngram_max=div.get("ngram_max", 6),
+        refresh_interval=div.get("refresh_interval", 20),
+    )
+
+
 def _load_agents(data: dict) -> list[AgentConfig]:
     """Parse [[agent]] entries from agents.toml."""
     agents = []
@@ -140,4 +155,5 @@ def load_config(
         display=_load_display_config(config_data),
         database=_load_database_config(config_data),
         agents=_load_agents(agents_data),
+        diversity=_load_diversity_config(config_data),
     )

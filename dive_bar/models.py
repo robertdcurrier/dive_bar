@@ -93,6 +93,19 @@ class DatabaseConfig:
 
 
 @dataclass
+class DiversityConfig:
+    """Diversity checking configuration."""
+
+    enabled: bool = True
+    threshold: float = 0.6
+    max_retries: int = 3
+    window_size: int = 10
+    ngram_min: int = 3
+    ngram_max: int = 6
+    refresh_interval: int = 20
+
+
+@dataclass
 class AppConfig:
     """Top-level application configuration."""
 
@@ -101,3 +114,6 @@ class AppConfig:
     display: DisplayConfig
     database: DatabaseConfig
     agents: list[AgentConfig]
+    diversity: DiversityConfig = field(
+        default_factory=DiversityConfig
+    )

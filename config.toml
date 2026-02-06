@@ -28,3 +28,11 @@ color_scheme = "default"
 
 [database]
 path = "data/dive_bar.duckdb"
+
+[diversity]
+enabled = true
+threshold = 0.6
+max_retries = 3
+window_size = 10
+ngram_range = [3, 6]
+refresh_interval = 20

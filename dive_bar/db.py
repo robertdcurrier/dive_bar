@@ -54,6 +54,17 @@ CREATE TABLE IF NOT EXISTS agent_states (
 )
 """
 
+REGENERATIONS_SQL = """
+CREATE TABLE IF NOT EXISTS regenerations (
+    regen_id VARCHAR PRIMARY KEY,
+    session_id VARCHAR,
+    turn_number INTEGER,
+    agent_name VARCHAR NOT NULL,
+    attempt_count INTEGER NOT NULL,
+    created_at TIMESTAMP DEFAULT current_timestamp
+)
+"""
+
 INSERT_MESSAGE_SQL = """
 INSERT INTO messages (
     message_id, session_id, turn_number,
@@ -82,6 +93,7 @@ class Database:
             self.con.execute(SESSIONS_SQL)
             self.con.execute(MESSAGES_SQL)
             self.con.execute(AGENT_STATES_SQL)
+            self.con.execute(REGENERATIONS_SQL)
 
     def start_session(
         self,
@@ -155,6 +167,30 @@ class Database:
                 "SET ended_at = current_timestamp "
                 "WHERE session_id = ?",
                 [session_id],
+            )
+
+    def log_regeneration(
+        self,
+        session_id: str,
+        turn_number: int,
+        agent_name: str,
+        attempt_count: int,
+    ):
+        """Log a diversity-triggered regeneration."""
+        regen_id = str(uuid.uuid4())
+        with self._lock:
+            self.con.execute(
+                "INSERT INTO regenerations "
+                "(regen_id, session_id, turn_number, "
+                "agent_name, attempt_count) "
+                "VALUES (?, ?, ?, ?, ?)",
+                [
+                    regen_id,
+                    session_id,
+                    turn_number,
+                    agent_name,
+                    attempt_count,
+                ],
             )
 
     def get_session_messages(

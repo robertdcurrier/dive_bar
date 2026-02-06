@@ -347,6 +347,55 @@ def compute_session_summary(
     return [dict(zip(cols, r)) for r in rows]
 
 
+def fetch_regenerations(
+    con: duckdb.DuckDBPyConnection,
+    session_id: str | None = None,
+) -> list[dict]:
+    """Query regeneration events."""
+    query = (
+        "SELECT regen_id, session_id, turn_number, "
+        "agent_name, attempt_count, created_at "
+        "FROM regenerations"
+    )
+    params = []
+    if session_id:
+        query += " WHERE session_id LIKE ? || '%'"
+        params.append(session_id)
+    query += " ORDER BY created_at"
+    try:
+        rows = con.execute(query, params).fetchall()
+    except duckdb.CatalogException:
+        return []
+    cols = [
+        "regen_id", "session_id", "turn_number",
+        "agent_name", "attempt_count", "created_at",
+    ]
+    return [dict(zip(cols, r)) for r in rows]
+
+
+def compute_regen_stats(
+    regens: list[dict],
+) -> dict[str, object]:
+    """Compute regeneration statistics."""
+    if not regens:
+        return {
+            "total_regens": 0,
+            "by_agent": {},
+            "avg_attempts": 0.0,
+        }
+    by_agent: dict[str, int] = defaultdict(int)
+    total_attempts = 0
+    for r in regens:
+        by_agent[r["agent_name"]] += 1
+        total_attempts += r["attempt_count"]
+    avg = total_attempts / len(regens) if regens else 0.0
+    return {
+        "total_regens": len(regens),
+        "by_agent": dict(by_agent),
+        "avg_attempts": round(avg, 2),
+    }
+
+
 def render_echoes(
     console: Console, data: dict
 ) -> None:
@@ -496,6 +545,44 @@ def render_sessions(
     console.print(table)
 
 
+def render_regens(
+    console: Console, stats: dict, regens: list[dict]
+) -> None:
+    """Render regeneration statistics."""
+    console.rule("[bold yellow]Regenerations")
+    if stats["total_regens"] == 0:
+        console.print("[green]No regenerations recorded.")
+        return
+    console.print(
+        f"Total: {stats['total_regens']} regens, "
+        f"avg {stats['avg_attempts']} attempts each"
+    )
+    by_agent = stats.get("by_agent", {})
+    if by_agent:
+        table = Table(title="Regenerations by Agent")
+        table.add_column("Agent", style="cyan")
+        table.add_column("Count", justify="right")
+        for agent, count in sorted(
+            by_agent.items(),
+            key=lambda x: x[1],
+            reverse=True,
+        ):
+            table.add_row(agent, str(count))
+        console.print(table)
+    if regens:
+        recent = Table(title="Recent Regenerations")
+        recent.add_column("Turn", justify="right")
+        recent.add_column("Agent", style="cyan")
+        recent.add_column("Attempts", justify="right")
+        for r in regens[-10:]:
+            recent.add_row(
+                str(r["turn_number"]),
+                r["agent_name"],
+                str(r["attempt_count"]),
+            )
+        console.print(recent)
+
+
 def build_parser() -> argparse.ArgumentParser:
     """Build argparse parser with subcommands."""
     parser = argparse.ArgumentParser(
@@ -515,6 +602,7 @@ def build_parser() -> argparse.ArgumentParser:
         ("agents", "Per-agent statistics"),
         ("topics", "Topic diversity analysis"),
         ("sessions", "Session overview"),
+        ("regens", "Regeneration statistics"),
         ("all", "Full report"),
     ]:
         sp = sub.add_parser(name, help=hlp)
@@ -567,6 +655,10 @@ def _dispatch(
     if cmd in ("sessions", "all"):
         summaries = compute_session_summary(con)
         render_sessions(console, summaries)
+    if cmd in ("regens", "all"):
+        regens = fetch_regenerations(con, sid)
+        stats = compute_regen_stats(regens)
+        render_regens(console, stats, regens)
 
 
 if __name__ == "__main__":
