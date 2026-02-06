@@ -1,4 +1,4 @@
-# Beyond Pink Elephants: Multi-Layer Defense Strategies for Behavioral Control in Multi-Agent LLM Conversation Systems
+# Beyond Pink Elephants: Multi-Layer Defense Strategies for Behavioral Control in Multi-Persona LLM Conversation Systems
 
 **Robert D. Currier**
 Department of Oceanography, Texas A&M University
@@ -9,14 +9,15 @@ OCEANCODA LLC
 ## Abstract
 
 We present a comprehensive investigation into behavioral
-control failures in multi-agent LLM conversation systems,
-conducted through iterative development and testing of
-"Dive Bar" -- a terminal-based simulator where five
-AI-driven characters engage in unscripted conversation.
+control failures in multi-persona LLM conversation
+systems, conducted through iterative development and
+testing of "Dive Bar" -- a terminal-based simulator
+where five AI-driven characters engage in unscripted
+conversation.
 Over the course of extended autonomous operation spanning
 5,800+ turns across multiple sessions, we identified and
 cataloged a taxonomy of failure modes including topic
-fixation, formulaic opener convergence, cross-agent phrase
+fixation, formulaic opener convergence, cross-persona phrase
 echoing, vocabulary diversity collapse, and context window
 template reinforcement.
 
@@ -43,14 +44,14 @@ Cross-model comparison between Llama 3 70B (local
 inference) and Claude Opus 4.6 (API inference) revealed
 that model capability dramatically reduces the need for
 architectural intervention. Opus achieved zero diversity
-system activations, zero cross-agent echoes, and
+system activations, zero cross-persona echoes, and
 vocabulary diversity ratios 4-6x higher than the local
 model in comparable session lengths, while also
 demonstrating sophisticated constraint-evasion behavior
 -- circumventing negative instructions through semantic
 paraphrase rather than direct violation.
 
-This work demonstrates that production multi-agent
+This work demonstrates that production multi-persona
 systems require coordinated, multi-layer mitigation
 strategies whose composition depends critically on the
 capabilities of the underlying model, and that the
@@ -62,11 +63,11 @@ single-layer analysis.
 
 ## 1. Introduction
 
-Large Language Models deployed as autonomous conversational
-agents face a class of behavioral control problems distinct
+Large Language Models deployed as conversational personas
+face a class of behavioral control problems distinct
 from those encountered in single-turn or short-session
-interactions. When multiple LLM-driven agents converse
-over extended periods, failure modes compound: agents
+interactions. When multiple LLM-driven personas converse
+over extended periods, failure modes compound: personas
 echo each other's phrases, converge on formulaic response
 templates, fixate on specific topics despite explicit
 constraints, and exhibit vocabulary collapse as the
@@ -83,7 +84,7 @@ maintain diversity, personality coherence, and topical
 variety through behavioral shaping alone.
 
 We conducted this investigation using "Dive Bar," a
-custom multi-agent conversation simulator where five
+custom multi-persona conversation simulator where five
 AI characters -- each with distinct backstories,
 personality traits, and speaking styles -- engage in
 unscripted dialogue moderated by an algorithmic
@@ -108,6 +109,25 @@ mechanism.
 ## 2. System Architecture
 
 ### 2.1 Platform Design
+
+**A note on terminology**: We use "multi-persona" rather
+than "multi-agent" to describe this system accurately.
+All personas are served by a single LLM instance (or API
+connection), with generation calls serialized through a
+shared lock. An orchestrator selects which persona speaks
+next; personas do not autonomously decide when to engage,
+nor do they maintain independent state or communicate
+outside the shared conversation transcript. Each "persona"
+is a distinct system prompt and character configuration
+applied to the same underlying model. This architecture
+is typical of character-driven conversation simulators
+and is distinct from true multi-agent systems where
+independent processes with separate model instances
+operate concurrently. The behavioral findings documented
+here -- pink elephant effects, vocabulary collapse,
+template reinforcement -- are properties of single-model
+multi-persona generation, not inter-agent coordination
+failures.
 
 Dive Bar is implemented as a Python terminal application
 using the Textual TUI framework. The core loop operates
@@ -217,9 +237,9 @@ toward them. Once an opener appears 2-3 times, it
 enters the context window and creates a self-reinforcing
 few-shot signal.
 
-### 3.3 Cross-Agent Phrase Echoing
+### 3.3 Cross-Persona Phrase Echoing
 
-**Symptom**: Distinct agents adopt identical phrases,
+**Symptom**: Distinct personas adopt identical phrases,
 destroying personality differentiation.
 
 **Example**: "Takes the cake" appeared 8 times across
@@ -227,8 +247,8 @@ destroying personality differentiation.
 became a universal story opener despite agents having
 no shared background.
 
-**Root cause**: The shared context window means all agents
-see all previous messages. The model generalizes
+**Root cause**: The shared context window means all
+personas see all previous messages. The model generalizes
 high-frequency patterns across character boundaries,
 treating them as conversational norms rather than
 individual speech patterns.
@@ -281,7 +301,7 @@ to increase output diversity.
 | temperature | 0.85 | 0.95 | Increase sampling diversity |
 
 **Effectiveness**: Reduced exact duplicate messages but
-did not prevent cross-agent echoing or topic fixation.
+did not prevent cross-persona echoing or topic fixation.
 These parameters operate on per-token probabilities
 within a single generation and cannot address
 conversation-level patterns.
@@ -586,7 +606,7 @@ configurations:
 - Diversity system triggered regularly
 - Vocabulary diversity: 0.10 at 5,520 turns
 - Formulaic openers persistent without logit bias
-- Cross-agent echoing common
+- Cross-persona echoing common
 
 ### 6.2 Claude Opus 4.6 (API)
 
@@ -599,7 +619,7 @@ configurations:
   (context window) for high-quality output
 - Zero diversity system activations (all responses
   passed on first attempt)
-- Zero cross-agent echoes
+- Zero cross-persona echoes
 - Zero exact duplicates
 - Vocabulary diversity: 0.64-0.69 (6-7x higher than
   local model at comparable relative session length)
@@ -613,7 +633,7 @@ configurations:
 | Metric | Llama 3 70B | Opus 4.6 |
 |--------|-------------|----------|
 | Vocab diversity | 0.10-0.55 | 0.64-0.69 |
-| Cross-agent echoes | Common | None detected |
+| Cross-persona echoes | Common | None detected |
 | Diversity regenerations | Regular | Zero |
 | Logit bias required | Essential | Not available/needed |
 | Gen time per turn | ~20s | ~3-4s |
@@ -673,7 +693,7 @@ the API backend:
 ### 7.3 Implications
 
 The API integration experience highlights a tension in
-multi-agent system design: local models offer deeper
+multi-persona system design: local models offer deeper
 control (logit bias, sampling parameters) but lower
 capability, while API models offer higher capability
 but fewer control mechanisms. The multi-layer defense
@@ -846,7 +866,7 @@ mechanism.
 
 ## 11. Methodology
 
-- **Platform**: Dive Bar -- custom multi-agent
+- **Platform**: Dive Bar -- custom multi-persona
   conversation simulator (Python, Textual TUI)
 - **Local Model**: Llama 3 70B Instruct (Q4_K_M, ~40GB)
 - **API Model**: Claude Opus 4.6 (Anthropic API)
@@ -858,7 +878,7 @@ mechanism.
   n-gram overlap, opener patterns, exact duplicates,
   vocabulary diversity ratios, agent statistics, and
   regeneration metrics
-- **Metrics**: Vocabulary diversity ratio, cross-agent
+- **Metrics**: Vocabulary diversity ratio, cross-persona
   phrase frequency, formulaic opener counts, diversity
   regeneration rates, agent participation distribution
 
@@ -866,7 +886,7 @@ mechanism.
 
 ## Keywords
 
-Large Language Models, Multi-Agent Systems, Behavioral
+Large Language Models, Multi-Persona Systems, Behavioral
 Control, Conversational AI, Pink Elephant Effect,
 World-Building Constraints, Logit Bias, Token
 Suppression, Context Window Management, Vocabulary
