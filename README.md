@@ -1,8 +1,9 @@
 # Dive Bar
 
 A terminal app where AI characters have unscripted
-conversations at a dive bar. Local LLM inference, no
-cloud APIs, no scripts — just characters being themselves.
+conversations at a dive bar. Supports local LLM inference
+and Anthropic API mode with per-agent engines. No scripts
+— just characters being themselves.
 
 ![Dive Bar Screenshot](docs/screenshot.png)
 
@@ -11,16 +12,20 @@ cloud APIs, no scripts — just characters being themselves.
 Five AI characters sit at a bar and talk. A bartender
 orchestrator picks who speaks next based on personality
 traits, time since they last talked, and whether they
-were mentioned by name. Characters have backstories,
-speaking styles, and opinions. They argue, tell stories,
-crack jokes, and change the subject when things get stale.
+were mentioned by name. When a character addresses
+another by name, that character responds next
+(deterministic addressing). A pair-streak limiter
+prevents two characters from ping-ponging indefinitely.
+Characters have backstories, speaking styles, and
+opinions. They argue, tell stories, crack jokes, and
+change the subject when things get stale.
 
 **The cast at The Rusty Nail:**
 
 | Name | Description | Drink |
 |------|-------------|-------|
 | Mack | Retired longshoreman, 63. Tall tales. | Whiskey, neat |
-| Dee | Off-duty bartender, 34. Sharp tongue. | PBR tallboy |
+| Hailee | Off-duty bartender, 34. Sharp tongue. | PBR tallboy |
 | Professor | Adjunct philosophy prof, 51. Overthinks. | Cheap red wine |
 | Tiny | Construction foreman, 45. Few words. | Bud Light |
 | Rosa | Retired ER nurse, 58. Seen everything. | Margarita, no salt |
@@ -29,8 +34,9 @@ crack jokes, and change the subject when things get stale.
 
 - Python 3.11+
 - macOS, Linux, or WSL (Textual TUI)
-- A GGUF model file (see [Models](#models))
-- Enough RAM to hold your model
+- A GGUF model file (see [Models](#models)) **or**
+  an Anthropic API key for API mode
+- Enough RAM to hold your model (local mode only)
 
 ### Python Dependencies
 
@@ -38,6 +44,7 @@ crack jokes, and change the subject when things get stale.
 textual
 llama-cpp-python
 duckdb
+anthropic
 ```
 
 ## Quick Start
@@ -50,7 +57,7 @@ cd dive-bar
 
 2. Install dependencies:
 ```bash
-pip install textual llama-cpp-python duckdb
+pip install textual llama-cpp-python duckdb anthropic
 ```
 
 3. Download a model into `models/`:
@@ -79,6 +86,27 @@ chat_format = "llama-3"
 ```bash
 python main.py
 ```
+
+### API Mode (Alternative)
+
+Instead of a local model, use the Anthropic API:
+
+```toml
+[llm]
+mode = "api"
+
+[llm.api]
+model = "claude-sonnet-4-5-20250929"
+```
+
+Set your API key via environment variable:
+```bash
+export ANTHROPIC_API_KEY="your-key-here"
+```
+
+In API mode, each agent gets its own API engine
+instance with a separate client. A house engine
+handles bartender opener and topic generation.
 
 ## Controls
 
@@ -155,6 +183,13 @@ they last spoke, their chattiness trait, whether they
 were just mentioned by name, and a random element. No
 LLM calls needed.
 
+**Deterministic addressing** — If the last message
+mentions a character by name, that character speaks
+next (bypasses scoring). A pair-streak limiter
+(`MAX_PAIR_STREAK`) suppresses ping-pong lock-in
+between the same two characters by falling back to
+scoring after consecutive dyad turns.
+
 **Prompt construction** — Conversation history is packed
 into a single user message as a script. The system prompt
 defines the character's personality. Anti-echo rules in
@@ -162,9 +197,15 @@ the system prompt prevent characters from just agreeing
 with each other.
 
 **Topic rotation** — A turn counter forces a topic change
-after N consecutive turns (`max_subject_chat`). A short
-LLM call generates a random dive bar topic, then the
-next speaker naturally pivots to it.
+after N consecutive turns (`max_subject_chat`). A meta-
+prompt ("what you'd overhear at a dive bar") generates
+topics, with a rolling avoidance list of the last 5
+topics to prevent subject fixation.
+
+**Per-agent engines** — In API mode, each character gets
+its own API engine instance. A house engine handles
+bartender opener and topic generation calls. Local mode
+uses a single shared engine.
 
 **Conversation logging** — Every message is logged to
 DuckDB with generation stats (tokens, timing, temperature,
@@ -182,7 +223,8 @@ dive-bar/
   dive_bar/
     app.py                Textual app + tick loop
     agent.py              Prompt building + topic rotation
-    bartender.py          Speaker selection algorithm
+    bartender.py          Speaker selection + addressing
+    api_engine.py         Anthropic API inference engine
     inference.py          llama-cpp-python wrapper
     config.py             TOML config loader
     models.py             Dataclass definitions
